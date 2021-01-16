@@ -1,8 +1,8 @@
-package ru.gpn.common.starters.security.configuration;
+package com.example.demo.config;
 
 import lombok.RequiredArgsConstructor;
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.BeanIds;
@@ -16,27 +16,31 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.DefaultSecurityFilterChain;
-import org.springframework.security.web.access.channel.ChannelProcessingFilter;
 import org.springframework.web.cors.CorsConfigurationSource;
-import org.springframework.web.filter.CorsFilter;
-import ru.gpn.common.starters.security.configuration.properties.CorsProperties;
-import ru.gpn.common.starters.security.configuration.properties.UrlProperties;
-import ru.gpn.common.starters.security.configuration.properties.WhiteListProperties;
 
 @EnableWebSecurity
 @EnableGlobalMethodSecurity(prePostEnabled = true, securedEnabled = true)
 @RequiredArgsConstructor
-@EnableConfigurationProperties({WhiteListProperties.class, CorsProperties.class, UrlProperties.class})
+@Configuration
 public class SecurityConfiguration extends WebSecurityConfigurerAdapter {
 
     private final SecurityProblemHandler securityProblemHandler;
     private final UserDetailsService userDetailsService;
     private final PasswordEncoder passwordEncoder;
-    private final WhiteListProperties whiteListProperties;
     private final SecurityConfigurerAdapter<DefaultSecurityFilterChain, HttpSecurity> securityConfigurerAdapter;
     private final CorsConfigurationSource corsConfigurationSource;
-    private final CorsProperties corsProperties;
-    private final UrlProperties urlProperties;
+    private static final String[] WHITE_LIST = {
+            "/v2/api-docs",
+            "/swagger-resources",
+            "/swagger-resources/**",
+            "/configuration/ui",
+            "/configuration/security",
+            "/swagger-ui.html",
+            "/webjars/**",
+            "/swagger",
+            "/actuator/**",
+            "/management/**"
+    };
 
     @Override
     protected void configure(AuthenticationManagerBuilder authenticationManagerBuilder) throws Exception {
@@ -47,9 +51,7 @@ public class SecurityConfiguration extends WebSecurityConfigurerAdapter {
 
     @Override
     protected void configure(HttpSecurity httpSecurity) throws Exception {
-        if (corsProperties.isEnabled()) {
-            httpSecurity.addFilterBefore(new CorsFilter(corsConfigurationSource), ChannelProcessingFilter.class);
-        }
+//        httpSecurity.addFilterBefore(new CorsFilter(corsConfigurationSource), ChannelProcessingFilter.class);
         httpSecurity
                 .csrf().disable()
                 .exceptionHandling()
@@ -62,13 +64,14 @@ public class SecurityConfiguration extends WebSecurityConfigurerAdapter {
                 .httpBasic().disable()
                 .authorizeRequests()
                 .antMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                .antMatchers(HttpMethod.POST, "/user/create").permitAll()
                 .antMatchers(HttpMethod.POST, "/api/v*/authentication/**").permitAll()
-                .antMatchers(whiteListProperties.getWhiteList()).permitAll()
+                .antMatchers(WHITE_LIST).permitAll()
                 .anyRequest().authenticated()
                 .and()
                 .logout()
-                .logoutUrl(urlProperties.getLogout())
-                .logoutSuccessUrl(urlProperties.getLogoutSuccess())
+                .logoutUrl("/api/v1/authentication/logout")
+                .logoutSuccessUrl("/")
                 .and()
                 .apply(securityConfigurerAdapter);
     }
